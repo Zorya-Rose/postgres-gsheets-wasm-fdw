@@ -46,7 +46,6 @@ impl Guest for ExampleFdw {
         Self::init_instance();
         let this = Self::this_mut();
     
-        // https://docs.google.com/spreadsheets/d/19GHu64bXpLmleMGsuMVowgjo3iy-Fo1JFTcpciW3Ve4/gviz/tq?tqx=out:json
         // get API URL from foreign server options if it is specified
         let opts = ctx.get_options(OptionsType::Server);
         this.base_url = opts.require_or("base_url", "https://docs.google.com/spreadsheets/d");
@@ -60,7 +59,9 @@ impl Guest for ExampleFdw {
         // get sheet id from foreign table options and make the request URL
         let opts = ctx.get_options(OptionsType::Table);
         let sheet_id = opts.require("sheet_id")?;
-        let url = format!("{}/{}/gviz/tq?tqx=out:json", this.base_url, sheet_id);
+        // expecting input with a format like "&sheet=posts"
+        let sub_sheet_id = opts.require_or("sub_sheet_id", "");
+        let url = format!("{}/{}/gviz/tq?tqx=out:json{}", this.base_url, sheet_id, sub_sheet_id);
     
         // make up request headers
         let headers: Vec<(String, String)> = vec![
@@ -120,17 +121,55 @@ impl Guest for ExampleFdw {
         for tgt_col in ctx.get_columns() {
             let (tgt_col_num, tgt_col_name) = (tgt_col.num(), tgt_col.name());
             if let Some(src) = src_row.pointer(&format!("/c/{}/v", tgt_col_num - 1)) {
-                // we only support I64 and String cell types here, add more type
-                // conversions if you need
+
+                // TypeOid::Bool -> Cell::Bool
+                // TypeOid::I8 -> Cell::I8
+                // TypeOid::I16 -> Cell::I16
+                // TypeOid::F32 -> Cell::F32
+                // TypeOid::I32 -> Cell::I32
+                // TypeOid::F64 -> Cell::F64
+                // TypeOid::I64 -> Cell::I64
+                // TypeOid::Numeric -> Cell::Numeric
+                // TypeOid::String -> Cell::String
+                // TypeOid::Date -> Cell::Date
+                // TypeOid::Timestamp -> Cell::Timestamp
+                // TypeOid::Timestamptz -> Cell::Timestamptz
+
                 let cell = match tgt_col.type_oid() {
-                    TypeOid::I64 => src.as_f64().map(|v| Cell::I64(v as _)),
+                    TypeOid::Bool => src.as_bool().map(Cell::Bool),
+                    TypeOid::I8 => src.as_i64().map(|v| Cell::I8(v as i8)),
+                    TypeOid::I16 => src.as_i64().map(|v| Cell::I16(v as i16)),
+                    TypeOid::F32 => src.as_f64().map(|v| Cell::F32(v as f32)),
+                    TypeOid::I32 => src.as_i64().map(|v| Cell::I32(v as i32)),
+                    TypeOid::F64 => src.as_f64().map(Cell::F64),
+                    TypeOid::I64 => src.as_i64().map(Cell::I64),
+                    TypeOid::Numeric => src.as_f64().map(Cell::Numeric),
                     TypeOid::String => src.as_str().map(|v| Cell::String(v.to_owned())),
-                    _ => {
-                        return Err(format!(
-                            "column {} data type is not supported",
-                            tgt_col_name
-                        ));
+                    TypeOid::Date => {
+                        if let Some(s) = src.as_str() {
+                            let ts = time::parse_from_rfc3339(s)?;
+                            Some(Cell::Date(ts / 1_000_000))
+                        } else {
+                            None
+                        }
                     }
+                    TypeOid::Timestamp => {
+                        if let Some(s) = src.as_str() {
+                            let ts = time::parse_from_rfc3339(s)?;
+                            Some(Cell::Timestamp(ts))
+                        } else {
+                            None
+                        }
+                    }
+                    TypeOid::Timestamptz => {
+                        if let Some(s) = src.as_str() {
+                            let ts = time::parse_from_rfc3339(s)?;
+                            Some(Cell::Timestamptz(ts))
+                        } else {
+                            None
+                        }
+                    }
+                    TypeOid::Json => src.as_object().map(|_| Cell::Json(src.to_string())),
                 };
     
                 // push the cell to target row
