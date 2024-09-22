@@ -140,7 +140,7 @@ impl Guest for ExampleFdw {
                     TypeOid::I8 => src.as_i64().map(Cell::I64),
                     TypeOid::I16 => src.as_i64().map(Cell::I64),
                     TypeOid::F32 => src.as_f64().map(Cell::F64),
-                    TypeOid::I32 => src.as_i64().map(Cell::I64)),
+                    TypeOid::I32 => src.as_i64().map(Cell::I64),
                     TypeOid::F64 => src.as_f64().map(Cell::F64),
                     TypeOid::I64 => src.as_i64().map(Cell::I64),
                     TypeOid::Numeric => src.as_f64().map(Cell::Numeric),
