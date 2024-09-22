@@ -137,10 +137,10 @@ impl Guest for ExampleFdw {
 
                 let cell = match tgt_col.type_oid() {
                     TypeOid::Bool => src.as_bool().map(Cell::Bool),
-                    TypeOid::I8 => src.as_i64().map(|v| Cell::I8(v as i8)),
-                    TypeOid::I16 => src.as_i64().map(|v| Cell::I16(v as i16)),
-                    TypeOid::F32 => src.as_f64().map(|v| Cell::F32(v as f32)),
-                    TypeOid::I32 => src.as_i64().map(|v| Cell::I32(v as i32)),
+                    TypeOid::I8 => src.as_i64().map(Cell::I64),
+                    TypeOid::I16 => src.as_i64().map(Cell::I64),
+                    TypeOid::F32 => src.as_f64().map(Cell::F64),
+                    TypeOid::I32 => src.as_i64().map(Cell::I64)),
                     TypeOid::F64 => src.as_f64().map(Cell::F64),
                     TypeOid::I64 => src.as_i64().map(Cell::I64),
                     TypeOid::Numeric => src.as_f64().map(Cell::Numeric),
